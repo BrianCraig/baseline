@@ -841,7 +841,7 @@ export class ParticipantStack {
     })
   }
 
-  async requireWorkgroupContract(type: string): Promise<any> {
+  async requireWorkgroupContract(type: string, timeout: number = 15000): Promise<any> {
     return await tryTimes(() => this.resolveWorkgroupContract(type))
   }
 
