@@ -4,6 +4,7 @@ import { Client } from 'pg';
 import { Ident } from 'provide-js';
 import { AuthService } from 'ts-natsutil';
 import { ParticipantStack } from '../src/index';
+import { AddLog } from './Consoled';
 
 export const promisedTimeout = (ms) => {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -43,7 +44,8 @@ export const baselineAppFactory = async (
     publicKey: natsPublicKey,
   };
   natsConfig.bearerToken = await vendNatsAuthorization(natsConfig, 'baseline.proxy');
-
+  AddLog("vend JWT to auth service adding permissions", natsConfig.bearerToken, orgName);
+  
   return new ParticipantStack(
     {
       identApiScheme: 'http',
@@ -77,6 +79,8 @@ export const configureTestnet = async (dbport, networkId) => {
     password: 'nchain',
     port: dbport,
   });
+
+  AddLog("Set enabled postgres DB", null, dbport);
 
   try {
     await nchainPgclient.connect();
@@ -117,6 +121,7 @@ export const vendNatsAuthorization = async (natsConfig, subject): Promise<string
     natsConfig?.privateKey,
     natsConfig?.publicKey,
   );
+  AddLog("Create Nats Token for baseline.proxy", authService, subject);
 
   const permissions = {
     publish: {

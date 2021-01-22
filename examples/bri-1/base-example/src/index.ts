@@ -10,6 +10,7 @@ import * as jwt from 'jsonwebtoken';
 import * as log from 'loglevel';
 import { sha256 } from 'js-sha256';
 import { AuthService } from 'ts-natsutil';
+import { AddLog } from '../test/Consoled';
 
 // const baselineDocumentCircuitPath = '../../../lib/circuits/createAgreement.zok';
 const baselineProtocolMessageSubject = 'baseline.proxy';
@@ -21,11 +22,11 @@ class TryError extends Error {
 }
 
 const tryTimes = async <T>(prom: () => Promise<T>, times: number = 80, wait: number = 9400): Promise<T> => {
-  const errors : any[] = [];
+  const errors: any[] = [];
   for (let index = 0; index < times; index++) {
     try {
       return await prom()
-    } catch (err) { 
+    } catch (err) {
       errors.push(err);
     }
     await sleep(wait);
@@ -66,18 +67,26 @@ export class ParticipantStack {
     this.natsConfig = natsConfig;
   }
 
+  get orgName(): string {
+    return this.baselineConfig?.orgName
+  }
+
   async init() {
     if (this.initialized) {
       throw new Error(`already initialized participant stack: ${this.org.name}`);
     }
+    AddLog("Start App initialization", null, this.orgName);
 
     this.baseline = await baselineServiceFactory(baselineProviderProvide, this.baselineConfig);
+    AddLog("Baseline Service Factory (@baseline/api)", this.baseline, this.orgName);
     this.nats = await messagingServiceFactory(messagingProviderNats, this.natsConfig);
+    AddLog("Messaging Service Factory (@baseline/messaging)", this.nats, this.orgName);
     this.privacy = await zkSnarkCircuitProviderServiceFactory(zkSnarkCircuitProviderServiceProvide, {
       token: this.baselineConfig?.token,
       privacyApiScheme: this.baselineConfig?.privacyApiScheme,
       privacyApiHost: this.baselineConfig?.privacyApiHost,
     }) as unknown as ICircuitRegistry & ICircuitProver & ICircuitVerifier; // HACK
+    AddLog("Privacy (zkSnark circuit provider) Service Factory (@baseline/privacy)", this.privacy, this.orgName);
 
     if (this.natsConfig?.natsBearerTokens) {
       this.natsBearerTokens = this.natsConfig.natsBearerTokens;
@@ -87,6 +96,7 @@ export class ParticipantStack {
     this.startProtocolSubscriptions();
 
     if (this.baselineConfig.initiator) {
+      AddLog("Create or Set Workgroup?", this.baselineConfig.initiator, this.orgName);
       if (this.baselineConfig.workgroup && this.baselineConfig.workgroupToken) {
         await this.setWorkgroup(this.baselineConfig.workgroup, this.baselineConfig.workgroupToken);
       } else if (this.baselineConfig.workgroupName) {
@@ -97,6 +107,7 @@ export class ParticipantStack {
     }
 
     this.initialized = true;
+    AddLog("Finalized App initialization", null, this.orgName);
   }
 
   getBaselineCircuit(): Circuit | undefined {
@@ -257,7 +268,7 @@ export class ParticipantStack {
       circuit.proving_scheme = circuit.provingScheme;
       circuit.verifier_contract = circuit.verifierContract;
       delete circuit.verifierContract;
-      delete circuit.createdAt; 
+      delete circuit.createdAt;
       delete circuit.vaultId;
       delete circuit.provingScheme;
       delete circuit.provingKeyId;
@@ -412,6 +423,7 @@ export class ParticipantStack {
   }
 
   async resolveMessagingEndpoint(addr: string): Promise<string> {
+    AddLog("Resolving Message endpoint", addr, this.orgName);
     const org = await this.fetchOrganization(addr);
     if (!org) {
       return Promise.reject(`organization not resolved: ${addr}`);
@@ -421,7 +433,7 @@ export class ParticipantStack {
     if (!messagingEndpoint) {
       return Promise.reject(`organization messaging endpoint not resolved for recipient: ${addr}`);
     }
-
+    AddLog("Found Message endpoint", messagingEndpoint, this.orgName);
     return messagingEndpoint;
   }
 
@@ -489,8 +501,10 @@ export class ParticipantStack {
       name: name,
       network_id: this.baselineConfig?.networkId,
     });
+    AddLog("Created Workgroup", this.workgroup, this.orgName);
 
     const tokenResp = await this.createWorkgroupToken();
+    AddLog("Created Workgroup Token", tokenResp, this.orgName);
     this.workgroupToken = tokenResp.accessToken || tokenResp.token;
 
     if (this.baselineConfig.initiator) {
@@ -512,8 +526,10 @@ export class ParticipantStack {
     const contractParams = registryContracts[2]; // "shuttle" launch contract
     // ^^ FIXME -- load from disk -- this is a wrapper to deploy the OrgRegistry contract
 
-    await this.deployWorkgroupContract('Shuttle', 'registry', contractParams);
+    const contract = await this.deployWorkgroupContract('Shuttle', 'registry', contractParams);
+    AddLog("Deploy Shuttle Contract", contract, this.orgName);
     await this.requireWorkgroupContract('organization-registry');
+    AddLog("Finalized Workgroup Initialization", null, this.orgName);
   }
 
   async registerWorkgroupOrganization(): Promise<Organization> {
@@ -534,6 +550,7 @@ export class ParticipantStack {
     if (!workgroup || !workgroupToken || !this.workgroup || this.workgroupToken) {
       return Promise.reject('failed to set workgroup');
     }
+    AddLog("Setting Workgroup", workgroupToken, this.orgName);
 
     this.workgroup = workgroup;
     this.workgroupToken = workgroupToken;
@@ -574,9 +591,11 @@ export class ParticipantStack {
   }
 
   async resolveOrganizationAddress(): Promise<string> {
+    let address;
     const keys = await this.fetchKeys();
     if (keys && keys.length >= 3) {
-      return keys[2].address; // HACK!
+      address = keys[2].address; // HACK!
+      return address;
     }
     return Promise.reject('failed to resolve organization address');
   }
@@ -593,6 +612,7 @@ export class ParticipantStack {
     const signerResp = (await nchain.createAccount({
       network_id: this.baselineConfig?.networkId,
     }));
+    AddLog("Created account on Nchain", signerResp, this.orgName);
 
     const resp = await NChain.clientFactory(
       this.workgroupToken,
@@ -604,6 +624,8 @@ export class ParticipantStack {
       value: 0,
       account_id: signerResp['id'],
     });
+
+    AddLog("Executed getOrg on nchain", resp, this.orgName);
 
     if (resp && resp['response'] && resp['response'][0] !== '0x0000000000000000000000000000000000000000') {
       const org = {} as Organization;
@@ -621,24 +643,20 @@ export class ParticipantStack {
   async requireCircuit(circuitId: string): Promise<Circuit> {
     let circuit: Circuit | undefined = undefined;
     const orgToken = await this.createOrgToken();
+    AddLog("Created Organization token", orgToken, this.orgName);
     const tkn = orgToken.accessToken || orgToken.token;
+    AddLog("Awaiting Circuit from privacy", circuitId, this.orgName);
+    const response = tryTimes(async () => {
+      circuit = await this.privacy?.fetchCircuit(circuitId) as Circuit;
+      if (circuit && circuit.verifierContract && circuit.verifierContract['source']) {
+        return circuit;
+      } else {
+        throw new Error("")
+      }
+    });
+    AddLog("Found Circuit from privacy", response, this.orgName);
 
-    let interval;
-    const promises = [] as any;
-    promises.push(new Promise<void>((resolve, reject) => {
-      interval = setInterval(async () => {
-        circuit = await this.privacy?.fetchCircuit(circuitId) as Circuit;
-        if (circuit && circuit.verifierContract && circuit.verifierContract['source']) {
-          resolve();
-        }
-      }, 2500);
-    }));
-
-    await Promise.all(promises);
-    clearInterval(interval);
-    interval = null;
-
-    return circuit!;
+    return response!;
   }
 
   async fetchVaults(): Promise<ProvideVault[]> {
@@ -697,6 +715,7 @@ export class ParticipantStack {
 
   async fetchKeys(): Promise<any> {
     const orgToken = await this.createOrgToken();
+    AddLog("Created Org Token", orgToken, this.orgName);
     const token = orgToken.accessToken || orgToken.token;
     const vault = Vault.clientFactory(token!, this.baselineConfig?.vaultApiScheme, this.baselineConfig?.vaultApiHost);
     const vlt = await this.requireVault(token!);
@@ -719,6 +738,8 @@ export class ParticipantStack {
       provider: 'gnark',
       name: 'my 1337 circuit',
     }) as Circuit;
+
+    AddLog("Deploying Baseline Circuit via privacy", circuit, this.orgName);
 
     this.baselineCircuit = await this.requireCircuit(circuit.id!);
     this.workflowIdentifier = this.baselineCircuit?.id;
@@ -832,16 +853,21 @@ export class ParticipantStack {
   }
 
   private async requireCapabilities(): Promise<void> {
-    return await tryTimes(async () => {
-      if (this.capabilities?.getBaselineRegistryContracts()) {
-        return;
+    AddLog("Await for capabilities", null, this.orgName);
+    const result = await tryTimes(async () => {
+      const capabilities = this.capabilities?.getBaselineRegistryContracts();
+      if (capabilities) {
+        return capabilities;
       }
       throw new Error();
     })
+    AddLog("Found for capabilities", result, this.orgName);
+    return result;
   }
 
   async requireOrganization(address: string): Promise<Organization> {
-    return await tryTimes(async () => {
+    AddLog("Awaiting Organization", address, this.orgName);
+    const organization = await tryTimes(async () => {
       const org = await this.fetchOrganization(address);
       if (org && org['address'].toLowerCase() === address.toLowerCase()) {
         return org;
@@ -849,19 +875,27 @@ export class ParticipantStack {
 
       throw new Error();
     })
+    AddLog("Found Organization", address, this.orgName);
+    return organization
   }
 
   async requireWorkgroup(): Promise<void> {
-    return await tryTimes(async () => {
+    AddLog("Await for workgroup", null, this.orgName);
+    const workgroup = await tryTimes(async () => {
       if (this.workgroup) {
         return this.workgroup;
       }
       throw new Error();
     })
+    AddLog("Got workgroup", workgroup, this.orgName);
+    return workgroup
   }
 
   async requireWorkgroupContract(type: string): Promise<any> {
-    return await tryTimes(() => this.resolveWorkgroupContract(type))
+    AddLog("Await for workgroup contract", type, this.orgName);
+    const contract = await tryTimes(() => this.resolveWorkgroupContract(type))
+    AddLog("Got workgroup contract", type, this.orgName);
+    return contract;
   }
 
   async resolveWorkgroupContract(type: string): Promise<any> {
@@ -905,12 +939,15 @@ export class ParticipantStack {
   async startProtocolSubscriptions(): Promise<any> {
     if (!this.nats?.isConnected()) {
       await this.nats?.connect();
+      AddLog("Connect to nats (messaging) because it's disconnected", null, this.orgName);
     }
 
     const subscription = await this.nats?.subscribe(baselineProtocolMessageSubject, (msg, err) => {
       this.protocolMessagesRx++;
       this.dispatchProtocolMessage(unmarshalProtocolMessage(Buffer.from(msg.data)));
     });
+
+    AddLog("Subscribe to baseline.proxy on Nats", subscription, this.orgName);
 
     this.protocolSubscriptions.push(subscription);
     return this.protocolSubscriptions;

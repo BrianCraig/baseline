@@ -8,6 +8,8 @@ import {
   shouldBehaveLikeAWorkgroupCounterpartyOrganization,
 } from './shared';
 
+import { AddLog, ShowLogs } from './Consoled';
+
 import {
   authenticateUser,
   baselineAppFactory,
@@ -27,7 +29,9 @@ const networkId = process.env['NCHAIN_NETWORK_ID'] || ropstenNetworkId;
 
 const setupUser = async (identHost, firstname, lastname, email, password) => {
   const user = (await createUser(identHost, firstname, lastname, email, password));
+  AddLog("Create Ident User", user, firstname);
   const auth = await authenticateUser(identHost, email, password);
+  AddLog("Create Ident Token", auth, firstname);
   const bearerToken = auth.token.token;
   assert(bearerToken, `failed to authorize bearer token for user ${email}`);
   return [user, bearerToken];
@@ -49,7 +53,7 @@ describe('baseline', () => {
     await configureTestnet(5432, networkId);
     await configureTestnet(5433, networkId);
 
-    const aliceUserToken = await setupUser(
+    const aliceUserToken = await setupUser( // provide/ident image on alice-ident
       'localhost:8081',
       'Alice',
       'Baseline',
@@ -80,13 +84,13 @@ describe('baseline', () => {
       bearerTokens[alice['id']],
       false,
       'localhost:8081',
-      'nats://localhost:4222',
+      'nats://localhost:4222', // nats host alice-provide-nats nats-server
       natsPrivateKey,
       natsPublicKey,
-      'localhost:8080',
+      'localhost:8080', // nchain host
       networkId,
-      'localhost:8082',
-      'localhost:8084',
+      'localhost:8082', // vault host
+      'localhost:8084', // privacy host
       'nethermind-ropsten.provide.services:8888',
       'http',
       null,
@@ -94,6 +98,8 @@ describe('baseline', () => {
       null,
       'corn domain lonely owner media grape hard rough arena knock uncover goddess cinnamon wing actress spring dizzy skill alter pistol funny bind rapid soap',
     );
+
+    AddLog("Finalize App Factory", aliceApp, aliceCorpName);
 
     bobApp = await baselineAppFactory(
       bobCorpName,
@@ -115,11 +121,13 @@ describe('baseline', () => {
       'forest step weird object extend boat ball unit canoe pull render monkey drink monitor behind supply brush frown alone rural minute level host clock',
     );
 
-    await bobApp.init();
-    await aliceApp.init();
+    AddLog("Finalize App Factory", bobApp, bobCorpName);
+
+    await Promise.all([bobApp.init(), aliceApp.init()]);
   });
 
   after('close connections',async () =>{
+    ShowLogs();
     await bobApp.disconnect();
     await aliceApp.disconnect();
   })

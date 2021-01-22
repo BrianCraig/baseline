@@ -1,5 +1,6 @@
 import { assert } from 'chai';
 import { ParticipantStack } from '../src';
+import { AddLog } from './Consoled';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -337,6 +338,7 @@ export const shouldBehaveLikeAnInitialWorkgroupOrganization = (getApp: () => Par
           it('should track the workgroup shield in an off-chain merkle tree database', async () => {
             // @ts-ignore
             const trackedShieldContracts = await getApp().baseline.getTracked();
+            AddLog("Found Tracked Shield contracts", {addresses: trackedShieldContracts}, getApp().orgName);
             assert(trackedShieldContracts.indexOf(shield.address.toLowerCase()) !== -1, 'workgroup shield contract should have been tracked');
           });
 
