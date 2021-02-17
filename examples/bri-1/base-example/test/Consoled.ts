@@ -6,7 +6,7 @@ interface Log {
     identity?: string | number
 }
 
-const logs: Log[] = [];
+export const logs: Log[] = [];
 
 export const AddLog = (name: string, information: any, identity?: string | number) => {
     logs.push({
@@ -25,4 +25,9 @@ const shortenStrings = (data) => typeof (data) === "string" ? data.substring(0, 
 
 export const ShowLogs = () => {
     console.table(logs.map(({ at, information, ...rest }, index: number) => ({ ...rest, information: shortenStrings(information), timePassed: timePassed(at, index) })))
+}
+
+export const ShowLogData = (index: number) => {
+    console.log(logs[index].name)
+    console.log(logs[index].information)
 }

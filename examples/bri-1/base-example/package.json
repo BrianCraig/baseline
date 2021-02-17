@@ -10,6 +10,7 @@
     "dist"
   ],
   "scripts": {
+    "preinstall": "npm --prefix ../lib/did-iregistry/ install && npm --prefix ../lib/did-iregistry/ run build",
     "build:cjs": "./node_modules/.bin/tsc -p tsconfig.cjs.json",
     "build:umd": "webpack",
     "build": "npm run clean && npm run build:cjs && npm run build:umd",
@@ -35,6 +36,7 @@
     "zokrates-js": "1.0.25"
   },
   "devDependencies": {
+    "@baseline-protocol/did-iregistry": "file:../lib/did-iregistry",
     "@types/jsonwebtoken": "^8.3.4",
     "@types/mocha": "^7.0.2",
     "@types/node": "^12.12.37",

@@ -834,6 +834,24 @@ services:
     volumes:
       - ./ops/await_tcp.sh:/usr/local/bin/await_tcp.sh:cached
 
+  bob-web:
+    container_name: bob-web
+    image: nginx:1-alpine
+    volumes:
+      - ./did/bob.json:/usr/share/nginx/html/.well-known/did-configuration.json
+    ports:
+      - "8090:80"
+    environment:
+      - NGINX_PORT=80
+
+  alice-web:
+    container_name: alice-web
+    image: nginx:1-alpine
+    volumes:
+      - ./did/alice.json:/usr/share/nginx/html/.well-known/did-configuration.json
+    ports:
+      - "8091:80"
+     
 networks:
   alice:
     driver: bridge

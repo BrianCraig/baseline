@@ -8,7 +8,7 @@ import {
   shouldBehaveLikeAWorkgroupCounterpartyOrganization,
 } from './shared';
 
-import { AddLog, ShowLogs } from './Consoled';
+import { AddLog, ShowLogs, ShowLogData, logs } from './Consoled';
 
 import {
   authenticateUser,
@@ -128,6 +128,9 @@ describe('baseline', () => {
 
   after('close connections',async () =>{
     ShowLogs();
+    const Logs = logs;
+    const showLogData = ShowLogData;
+    // Add a debugger here if you want to access details ex: showLogData(3)
     await bobApp.disconnect();
     await aliceApp.disconnect();
   })
@@ -183,6 +186,7 @@ describe('baseline', () => {
         before(async () => {
           await bobApp.inviteWorkgroupParticipant(alice.email);
           inviteToken = await scrapeInvitationToken('bob-ident-consumer'); // if configured, ident would have sent an email to Alice
+          AddLog("Invite Token Created", inviteToken, bobCorpName);
         });
 
         it('should have created an invite for alice', async () => {

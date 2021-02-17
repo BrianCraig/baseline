@@ -4,18 +4,20 @@ import { zkSnarkCircuitProviderServiceFactory, zkSnarkCircuitProviderServiceProv
 import { ICircuitProver, ICircuitRegistry, ICircuitVerifier } from '@baseline-protocol/privacy/dist/cjs/zkp';
 import { Message as ProtocolMessage, Opcode, PayloadType, marshalProtocolMessage, unmarshalProtocolMessage } from '@baseline-protocol/types';
 import { Application as Workgroup, Circuit, Invite, Vault as ProvideVault, Organization, Token, Key as VaultKey } from '@provide/types';
-import { Capabilities, Ident, NChain, Vault, capabilitiesFactory, nchainClientFactory } from 'provide-js';
+import { Capabilities, Ident, NChain, Vault, capabilitiesFactory, nchainClientFactory } from 'provide-js'; 
 import { compile as solidityCompile } from 'solc';
 import * as jwt from 'jsonwebtoken';
 import * as log from 'loglevel';
 import { sha256 } from 'js-sha256';
 import { AuthService } from 'ts-natsutil';
 import { AddLog } from '../test/Consoled';
+import { createDid, getDidInformation } from '../../lib/did-iregistry';
 
 // const baselineDocumentCircuitPath = '../../../lib/circuits/createAgreement.zok';
 const baselineProtocolMessageSubject = 'baseline.proxy';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 
 class TryError extends Error {
   promiseErrors: any[] = []
@@ -43,6 +45,7 @@ export class ParticipantStack {
   private baselineCircuit?: Circuit;
   private baselineConfig?: any;
   private babyJubJub?: VaultKey;
+  private domain?: string;
   private hdwallet?: VaultKey;
   private initialized = false;
   private nats?: IMessagingService;
@@ -120,6 +123,14 @@ export class ParticipantStack {
 
   getBaselineService(): IBaselineRPC & IBlockchainService & IRegistry & IVault | undefined {
     return this.baseline;
+  }
+
+  async getDidAddress(): Promise<string> {
+   return (await getDidInformation(this.domain!)).address
+  }
+
+  async getDidMessengerUri(): Promise<string> {
+    return (await getDidInformation(this.domain!)).messengerUri
   }
 
   getMessagingConfig(): any | undefined {
@@ -646,6 +657,7 @@ export class ParticipantStack {
     AddLog("Created Organization token", orgToken, this.orgName);
     const tkn = orgToken.accessToken || orgToken.token;
     AddLog("Awaiting Circuit from privacy", circuitId, this.orgName);
+    await sleep(2500);
     const response = tryTimes(async () => {
       circuit = await this.privacy?.fetchCircuit(circuitId) as Circuit;
       if (circuit && circuit.verifierContract && circuit.verifierContract['source']) {
@@ -928,12 +940,34 @@ export class ParticipantStack {
     if (this.org) {
       const vault = await this.requireVault();
       this.babyJubJub = await this.createVaultKey(vault.id!, 'babyJubJub');
-      await this.createVaultKey(vault.id!, 'secp256k1');
+      const orgAddr = await this.createVaultKey(vault.id!, 'secp256k1');
+      this.generateDid(orgAddr, messagingEndpoint)
       this.hdwallet = await this.createVaultKey(vault.id!, 'BIP39');
       await this.registerWorkgroupOrganization();
     }
 
     return this.org;
+  }
+
+  private async generateDid(orgAddr, messagingEndpoint) {
+    const nchain = nchainClientFactory(
+      this.workgroupToken,
+      this.baselineConfig?.nchainApiScheme,
+      this.baselineConfig?.nchainApiHost,
+    );
+
+      // createDid (async (data) => await nchain.createTransaction, this.domain, orgAddr, messagingEndpoint)
+
+    /*
+    let transaction = {
+      nonce: "0x0",
+      gasPrice: "0x10f872c5d",
+      from: "0x6c1be6c71b2ac21415fd5f1b0f985ae43fa10a9e",
+      gas: undefined,
+      to: "0xdca7ef03e98e0dc2b855be647c39abe984fcf21b",
+      data: "0x7ad4b0a40000000000000000000000006c1be6c71b2ac21415fd5f1b0f985ae43fa10a9e6469642f7376632f426173656c696e6550726f746f636f6c5365727669636530000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000151800000000000000000000000000000000000000000000000000000000000000015687474703a2f2f6c6f63616c686f73743a373037300000000000000000000000",
+    }*/
+
   }
 
   async startProtocolSubscriptions(): Promise<any> {

@@ -131,6 +131,14 @@ export const shouldBehaveLikeAWorkgroupOrganization = (getApp: () => Participant
         assert(keys[2].spec === 'secp256k1', 'default secp256k1 keypair not created');
       });
 
+      it("Should get the address from the DID domain", async () => {
+        assert(address === await getApp().getDidAddress());
+      });
+
+      it("Should get the messenger URI from the DID domain", async () => {
+        assert(address === await getApp().getDidMessengerUri());
+      });
+
       it('should resolve the created secp256k1 keypair as the organization address', async () => {
         const addr = await getApp().resolveOrganizationAddress();
         assert(keys[2].address === addr, 'default secp256k1 keypair should resolve as the organization address');
@@ -338,7 +346,7 @@ export const shouldBehaveLikeAnInitialWorkgroupOrganization = (getApp: () => Par
           it('should track the workgroup shield in an off-chain merkle tree database', async () => {
             // @ts-ignore
             const trackedShieldContracts = await getApp().baseline.getTracked();
-            AddLog("Found Tracked Shield contracts", {addresses: trackedShieldContracts}, getApp().orgName);
+            AddLog("Found Tracked Shield contracts", { addresses: trackedShieldContracts }, getApp().orgName);
             assert(trackedShieldContracts.indexOf(shield.address.toLowerCase()) !== -1, 'workgroup shield contract should have been tracked');
           });
 
