@@ -10,10 +10,10 @@ import { EthrDIDProvider } from '@veramo/did-provider-ethr'
 import { WebDIDProvider } from '@veramo/did-provider-web'
 
 // Core key manager plugin
-import { AbstractKeyStore, KeyManager } from '@veramo/key-manager'
+import { AbstractKeyStore, AbstractSecretBox, KeyManager } from '@veramo/key-manager'
 
 // Custom key management system for RN
-import { KeyManagementSystem } from '@veramo/kms-local'
+import { KeyManagementSystem, SecretBox } from '@veramo/kms-local'
 
 // Custom resolvers
 import { DIDResolverPlugin } from '@veramo/did-resolver'
@@ -26,6 +26,7 @@ import { Entities, KeyStore, DIDStore, IDataStoreORM } from '@veramo/data-store'
 
 // TypeORM is installed with daf-typeorm
 import { createConnection } from 'typeorm'
+import { ICredentialIssuer,CredentialIssuer } from '@veramo/credential-w3c'
 
 
 // This will be the name for the local sqlite database for demo purposes
@@ -63,10 +64,10 @@ class MemoryKeyStore extends AbstractKeyStore {
 
 export const memKeyStore = new MemoryKeyStore()
 
-export const agent = createAgent<IDIDManager & IKeyManager & IDataStore & IDataStoreORM & IResolver>({
+export const agent = createAgent<IDIDManager & IKeyManager & IDataStore & IDataStoreORM & IResolver & ICredentialIssuer>({
   plugins: [
     new KeyManager({
-      store: new KeyStore(dbConnection),
+      store: new KeyStore(dbConnection,  new SecretBox('29739248cad1bd1a0fc4d9b75cd4d2990de535baf5caadfdf8d8f86664aa830c')),
       kms: {
         local: new KeyManagementSystem(),
       },
@@ -94,5 +95,6 @@ export const agent = createAgent<IDIDManager & IKeyManager & IDataStore & IDataS
         web: webDidResolver().web,
       }),
     }),
+    new CredentialIssuer()
   ],
 })
