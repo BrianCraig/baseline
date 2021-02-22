@@ -1,14 +1,16 @@
 import { createDid, getDidInformation } from '../src/index'
 
 describe('DID package tests', () => {
+  let didResult;
   it('creates a simple DID', async () => {
     const didPromise = createDid(async () => { },
       null,
       'domain-x',
       [])
-    const didResult = JSON.parse(await didPromise)
+    didResult = JSON.parse(await didPromise)
     expect(didResult).toHaveProperty('@context', 'https://identity.foundation/.well-known/contexts/did-configuration-v0.0.jsonld')
     expect(didResult.linked_dids).toHaveLength(1);
+    console.log(JSON.stringify(didResult))
     // TODO jwt read and match props
   })
 
@@ -23,19 +25,51 @@ describe('DID package tests', () => {
     ]
   }
 
+  JWT:
+  {
+    "vc": {
+      "credentialSubject": {
+        "origin": "baseline-alice-did.vercel.app"
+      },
+      "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://identity.foundation/.well-known/contexts/did-configuration-v0.0.jsonld"
+      ],
+      "type": [
+        "VerifiableCredential",
+        "DomainLinkageCredential"
+      ]
+    },
+    "sub": "did:ethr:ropsten:0x2e6a773e0b2f7c5856a8980e1895205c9eb41e1f",
+    "nbf": 1613812458,
+    "iss": "did:ethr:ropsten:0x2e6a773e0b2f7c5856a8980e1895205c9eb41e1f"
+  }
+
   */
+
+  it('validates the DID', async () => {
+    // TODO mock domain-x and validate (use from daf-plugin-did-config)
+  })
 
   it('creates correct DID document from pre-established address', async () => {
     const expectedDID = `TODO`;
-    expect(await createDid(async () => { },
-      "0xd58d382d9803226ec5c88a37f9b224d5146067e0",
-      'alice-did-test.vercel.app',
+    const didPromise = createDid(async () => { },
+      null,
+      'domain-x:8081',
       [{
         serviceEndpoint: "http://x/",
-        slug: "baseline",
-        type: "BaselineProtocol"
+        slug: "baseline-message-endpoint",
+        type: "BaselineProtocolMessageEndpoint"
+      },
+      {
+        serviceEndpoint: "0x672efbc0b0445522d3c14a9d1889423448ea43e0",
+        slug: "baseline-address",
+        type: "BaselineProtocolAddress"
       }]
-    )).toBe(expectedDID)
+    )
+
+    didResult = JSON.parse(await didPromise)
+    console.log(didResult);
   })
 
   it('Gets correct info from Domain', async () => {

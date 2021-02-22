@@ -3,6 +3,8 @@ import { agent } from "./setup"
 
 const WELL_KNOWN_DID_CONFIGURATION_SCHEMA_URI = "https://identity.foundation/.well-known/contexts/did-configuration-v0.0.jsonld";
 
+jest.setTimeout(9400000)
+
 interface Service {
   type: string,
   serviceEndpoint: string,
@@ -38,6 +40,9 @@ const generateDidConfiguration = async (did: IIdentifier, domain: string): Promi
 
 export const createDid = async (publisher: (transaction: any) => Promise<void>, address: string | null, domain: string, services: Service[]): Promise<any> => {
   const did = await agent.didManagerGetOrCreate();
+  services.forEach(async service => {
+    await agent.didManagerAddService({ did: did.did, service: { id: `${did.did}#${service.slug}`, type: service.type, serviceEndpoint: service.serviceEndpoint } });
+  });
   return await generateDidConfiguration(did, domain);
 }
 
